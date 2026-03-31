@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Pokédex 151</title>
+<style>
+*{box-sizing:border-box;}
+body{font-family:Arial;text-align:center;background:#111;color:white;margin:0;padding:10px;}
+.topbar{display:flex;justify-content:center;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;}
+#grid{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;max-width:820px;margin:auto;}
+@media(max-width:600px){#grid{grid-template-columns:repeat(6,1fr);}}
+.cell{background:#222;padding:4px;border-radius:6px;font-size:10px;height:80px;display:flex;flex-direction:column;justify-content:center;align-items:center;transition:transform 0.1s;}
+.cell.found{background:#1e3a1e;cursor:pointer;}.cell.found:hover{transform:scale(1.08);}
+.cell.shinyFound{background:#2a2a00;border:1px solid gold;}
+.cell img{width:44px;height:44px;}
+.cell .num{color:#666;font-size:9px;}
+.cell .pname{font-size:9px;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60px;}
+.input-row{display:flex;justify-content:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+input{padding:8px;border-radius:6px;border:1px solid #444;background:#222;color:white;font-size:14px;width:200px;}
+button{padding:7px 13px;cursor:pointer;border-radius:6px;border:1px solid #555;background:#333;color:white;font-size:13px;transition:background 0.15s;}
+button:hover{background:#444;}button:disabled{opacity:0.35;cursor:default;}
+.shiny-badge{color:gold;}
+/* Overlay */
+#overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:200;overflow-y:auto;padding:12px;}
+#overlayBox{background:#1a1a1a;border-radius:14px;padding:20px;max-width:880px;margin:16px auto;text-align:center;}
+/* Tabs dans overlay */
+.tabs{display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid #444;}
+.tab{padding:8px 16px;cursor:pointer;font-size:13px;color:#aaa;border-bottom:2px solid transparent;transition:all 0.15s;}
+.tab.active{color:white;border-bottom-color:lime;}
+.tab:hover{color:white;}
+.tabContent{display:none;}.tabContent.active{display:block;}
+/* Cartes sélection */
+.selCard{background:#222;padding:7px;border-radius:8px;cursor:pointer;text-align:center;font-size:10px;border:2px solid transparent;transition:all 0.15s;}
+.selCard.selected{border-color:lime;background:#1a2a1a;}
+.selCard img{width:44px;}
+/* Combat */
+#battle{display:none;margin-top:20px;justify-content:center;gap:16px;flex-wrap:wrap;align-items:flex-start;}
+.teamBox{background:#1a1a1a;padding:10px;border-radius:10px;width:240px;}
+.activeCard{padding:10px;background:#222;border-radius:10px;border:2px solid #444;transition:all 0.3s;position:relative;overflow:hidden;}
+.activeCard.hit-enemy{border-color:#f55;animation:shakeEnemy 0.35s;}
+.activeCard.hit-player{border-color:#f55;animation:shakePlayer 0.35s;}
+@keyframes shakeEnemy{0%,100%{transform:none}20%{transform:translateX(6px)}50%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+@keyframes shakePlayer{0%,100%{transform:none}20%{transform:translateX(-6px)}50%{transform:translateX(5px)}80%{transform:translateX(-3px)}}
+.activeCard.fainted-anim{animation:faintOut 0.6s forwards;}
+@keyframes faintOut{0%{opacity:1;transform:none}60%{opacity:0.3;transform:translateY(8px) rotate(-3deg)}100%{opacity:0.15;transform:translateY(14px) rotate(-6deg);filter:grayscale(1)}}
+/* Flash dégâts */
+.dmg-flash{position:absolute;top:0;left:0;width:100%;height:100%;background:#f550;pointer-events:none;border-radius:10px;animation:dmgFlash 0.4s forwards;}
+@keyframes dmgFlash{0%{background:rgba(255,60,60,0.35)}100%{background:rgba(255,60,60,0)}}
+/* HP bar */
+.hpbar,.xpbar{width:100%;border-radius:4px;overflow:hidden;}
+.hpbar{height:10px;background:#3a3a3a;margin-top:5px;}
+.xpbar{height:5px;background:#2a2a2a;margin-top:3px;}
+.hpfill{height:100%;transition:width 0.55s ease;}
+.xpfill{height:100%;background:cyan;transition:width 0.55s;}
+.green{background:limegreen;}.orange{background:orange;}.red{background:#e33;}
+/* Pokéballs banc */
+.bench-ball{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform 0.15s;position:relative;}
+.bench-ball.alive{cursor:pointer;}.bench-ball.alive:hover{transform:scale(1.3);}
+.bench-ball.fainted{opacity:0.2;filter:grayscale(1);cursor:default;}
+.bench-ball.active-ball{outline:3px solid lime;outline-offset:2px;cursor:default;}
+.bench-tooltip{display:none;position:absolute;bottom:38px;left:50%;transform:translateX(-50%);background:#333;border:1px solid #555;border-radius:6px;padding:5px 9px;font-size:10px;white-space:nowrap;z-index:10;pointer-events:none;text-align:center;}
+.bench-ball:hover .bench-tooltip{display:block;}
+/* Log */
+#log{width:270px;background:#1a1a1a;padding:10px;height:440px;overflow-y:auto;border-radius:10px;text-align:left;font-size:12px;line-height:1.75;}
+.logLine{padding:2px 0;border-bottom:1px solid #222;animation:fadeIn 0.3s;}
+@keyframes fadeIn{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:none}}
+.logLine.crit{color:#ff6;}.logLine.super{color:#6f6;}.logLine.miss{color:#888;}.logLine.xp{color:cyan;}.logLine.lvl{color:lime;}.logLine.evo{color:gold;}.logLine.ko{color:#f55;}
+/* Attaques */
+.atk-btn{margin:3px;font-size:11px;padding:6px 10px;border-radius:6px;transition:all 0.12s;display:inline-block;width:calc(50% - 8px);}
+.atk-btn:hover{filter:brightness(1.2);transform:translateY(-1px);}
+.atk-btn:active{transform:scale(0.93);}
+.atk-btn:disabled{opacity:0.25;}
+.tbadge{font-size:9px;padding:1px 6px;border-radius:4px;display:inline-block;margin-left:2px;font-weight:bold;}
+/* Particules */
+#particles{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1000;}
+.particle{position:absolute;border-radius:50%;animation:particleFly var(--dur,1s) ease-out forwards;}
+@keyframes particleFly{0%{opacity:1;transform:scale(1) translate(0,0)}100%{opacity:0;transform:scale(0.2) translate(var(--tx,0),var(--ty,-120px))}}
+/* Shiny overlay */
+#shinyOverlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:300;pointer-events:none;}
+/* Tableau moves */
+.move-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px;}
+.move-table th{color:#888;font-weight:normal;padding:3px 5px;border-bottom:1px solid #333;text-align:left;}
+.move-table td{padding:4px 5px;border-bottom:1px solid #2a2a2a;}
+.move-table tr.learned{background:#1a2a1a;}
+.move-table tr.active-move{background:#1a1a2a;}
+.move-cb{cursor:pointer;width:14px;height:14px;}
+@keyframes discoverPop{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}
+/* Level up flash */
+#lvlUpBanner{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(135deg,#1a3a1a,#0a2a0a);border:2px solid lime;border-radius:14px;padding:18px 32px;font-size:20px;font-weight:bold;color:lime;z-index:500;animation:bannerPop 0.4s ease;pointer-events:none;}
+@keyframes bannerPop{from{transform:translate(-50%,-50%) scale(0.6);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+#evoBanner{display:none;position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:500;pointer-events:none;}
+</style>
+</head>
+<body>
+<h1>Pokédex 151</h1>
+<div class="topbar">
+  <div>📘 <span id="count">0</span>/151</div>
+  <div>✨ <span id="shinyCount">0</span></div>
+  <div>🏆 <span id="winsSpan">0</span> victoires</div>
+  <button onclick="prepareBattle()" id="battleBtn" disabled>⚔️ Combattre</button>
+  <button onclick="giveUp()">🏳 Tout révéler</button>
+  <button onclick="reset()">🔄 Reset</button>
+</div>
+<div class="input-row">
+  <input id="input" placeholder="Nom ou numéro" autocomplete="off" onkeydown="if(event.key==='Enter')add()">
+  <button onclick="add()">Ajouter</button>
+</div>
+<div id="grid"></div>
+<div id="overlay"><div id="overlayBox"></div></div>
+<div id="particles"></div>
+<div id="shinyOverlay"></div>
+<div id="lvlUpBanner"></div>
+<div id="evoBanner"></div>
+<div id="battle">
+  <!-- Côté joueur -->
+  <div class="teamBox" style="min-width:240px">
+    <div id="playerActive"></div>
+    <div id="playerBench" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:8px"></div>
+    <div id="atkZone" style="margin-top:10px"></div>
+  </div>
+  <!-- Log -->
+  <div id="log"></div>
+  <!-- Côté ennemi -->
+  <div class="teamBox" style="min-width:240px">
+    <div id="enemyBench" style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:8px"></div>
+    <div id="enemyActive"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// DONNÉES
+// ══════════════════════════════════════════════
+const names=["Bulbizarre","Herbizarre","Florizarre","Salamèche","Reptincel","Dracaufeu","Carapuce","Carabaffe","Tortank","Chenipan","Chrysacier","Papilusion","Aspicot","Coconfort","Dardargnan","Roucool","Roucoups","Roucarnage","Rattata","Rattatac","Piafabec","Rapasdepic","Abo","Arbok","Pikachu","Raichu","Sabelette","Sablaireau","Nidoran♀","Nidorina","Nidoqueen","Nidoran♂","Nidorino","Nidoking","Mélofée","Mélodelfe","Goupix","Feunard","Rondoudou","Grodoudou","Nosferapti","Nosferalto","Mystherbe","Ortide","Rafflesia","Paras","Parasect","Mimitoss","Aéromite","Taupiqueur","Triopikeur","Miaouss","Persian","Psykokwak","Akwakwak","Férosinge","Colossinge","Caninos","Arcanin","Ptitard","Têtarte","Tartard","Abra","Kadabra","Alakazam","Machoc","Machopeur","Mackogneur","Chétiflor","Boustiflor","Empiflor","Tentacool","Tentacruel","Racaillou","Gravalanche","Grolem","Ponyta","Galopa","Ramoloss","Flagadoss","Magnéti","Magnéton","Canarticho","Doduo","Dodrio","Otaria","Lamantine","Tadmorv","Grotadmorv","Kokiyas","Crustabri","Fantominus","Spectrum","Ectoplasma","Onix","Soporifik","Hypnomade","Krabby","Krabboss","Voltorbe","Électrode","Noeunoeuf","Noadkoko","Osselait","Ossatueur","Kicklee","Tygnon","Excelangue","Smogo","Smogogo","Rhinocorne","Rhinoféros","Leveinard","Saquedeneu","Kangourex","Hypotrempe","Hypocéan","Poissirène","Poissoroy","Stari","Staross","M. Mime","Insécateur","Lippoutou","Élektek","Magmar","Scarabrute","Tauros","Magicarpe","Léviator","Lokhlass","Métamorph","Évoli","Aquali","Voltali","Pyroli","Porygon","Amonita","Amonistar","Kabuto","Kabutops","Ptéra","Ronflex","Artikodin","Électhor","Sulfura","Minidraco","Draco","Dracolosse","Mewtwo","Mew"];
+
+const ptype=["plante","plante","plante","feu","feu","feu","eau","eau","eau","insecte","insecte","insecte","insecte","insecte","insecte","normal","normal","normal","normal","normal","normal","normal","poison","poison","electrik","electrik","sol","sol","poison","poison","poison","poison","poison","poison","fee","fee","feu","feu","normal","normal","poison","poison","plante","plante","plante","insecte","insecte","insecte","insecte","sol","sol","normal","normal","eau","eau","combat","combat","feu","feu","eau","eau","eau","psy","psy","psy","combat","combat","combat","plante","plante","plante","eau","eau","roche","roche","roche","feu","feu","eau","eau","electrik","electrik","normal","normal","normal","eau","eau","poison","poison","eau","eau","spectre","spectre","spectre","roche","psy","psy","eau","eau","electrik","electrik","plante","plante","sol","sol","combat","combat","normal","poison","poison","roche","roche","normal","plante","normal","eau","eau","eau","eau","eau","eau","psy","insecte","glace","electrik","feu","insecte","normal","eau","eau","eau","normal","normal","eau","electrik","feu","normal","roche","roche","roche","roche","roche","normal","glace","electrik","feu","dragon","dragon","dragon","psy","psy"];
+
+const typeColor={feu:"#f84",eau:"#58f",plante:"#5a5",electrik:"#fa0",normal:"#999",poison:"#a6a",insecte:"#7b0",sol:"#c85",roche:"#a97",combat:"#b44",psy:"#f4b",spectre:"#648",glace:"#7cf",dragon:"#76f",fee:"#f9b"};
+
+const chart={
+  feu:{plante:2,insecte:2,glace:2,eau:0.5,feu:0.5,roche:0.5,dragon:0.5},
+  eau:{feu:2,sol:2,roche:2,plante:0.5,eau:0.5,dragon:0.5},
+  plante:{eau:2,sol:2,roche:2,feu:0.5,plante:0.5,poison:0.5,insecte:0.5,dragon:0.5},
+  electrik:{eau:2,feu:2,combat:2,plante:0.5,electrik:0.5,dragon:0.5,sol:0},
+  normal:{roche:0.5,spectre:0},
+  poison:{plante:2,fee:2,poison:0.5,roche:0.5,sol:0.5,spectre:0,combat:0.5},
+  sol:{feu:2,electrik:2,poison:2,roche:2,insecte:0.5,plante:0.5},
+  roche:{feu:2,insecte:2,glace:2,normal:2,combat:0.5,sol:0.5},
+  combat:{normal:2,roche:2,glace:2,poison:0.5,insecte:0.5,psy:0.5,spectre:0},
+  psy:{combat:2,poison:2,psy:0.5,spectre:0},
+  insecte:{plante:2,psy:2,poison:0.5,feu:0.5,combat:0.5},
+  spectre:{psy:2,spectre:2,normal:0,combat:0},
+  glace:{plante:2,sol:2,dragon:2,eau:0.5,glace:0.5},
+  dragon:{dragon:2},fee:{combat:2,dragon:2,poison:0.5,feu:0.5}
+};
+function multi(at,dt){return chart[at]&&chart[at][dt]!==undefined?chart[at][dt]:1;}
+
+// Pool complet de toutes les attaques apprises par niveau, par pokémon
+// {n=nom, t=type, p=puissance(0=statut), l=niveau requis}
+const MP={
+  1:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Fouet Lianes",t:"plante",p:45,l:7},{n:"Poudre Dodo",t:"normal",p:0,l:13},{n:"Tranch-Herbe",t:"plante",p:55,l:20},{n:"Laser Plante",t:"plante",p:80,l:33}],
+  2:[{n:"Fouet Lianes",t:"plante",p:45,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:15},{n:"Lance-Soleil",t:"plante",p:90,l:28},{n:"Laser Plante",t:"plante",p:80,l:32}],
+  3:[{n:"Fouet Lianes",t:"plante",p:45,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:1},{n:"Lance-Soleil",t:"plante",p:90,l:1},{n:"Laser Plante",t:"plante",p:80,l:1},{n:"Pétale Danse",t:"plante",p:100,l:38}],
+  4:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Griffe",t:"normal",p:35,l:7},{n:"Flammèche",t:"feu",p:40,l:13},{n:"Tranche",t:"normal",p:50,l:20},{n:"Défense Fer",t:"normal",p:0,l:28}],
+  5:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Flammèche",t:"feu",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:28},{n:"Défense Fer",t:"normal",p:0,l:32}],
+  6:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Danse-Flamme",t:"feu",p:95,l:36},{n:"Deflagraton",t:"feu",p:110,l:46}],
+  7:[{n:"Charge",t:"normal",p:35,l:1},{n:"Queue",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:7},{n:"Morsure",t:"normal",p:40,l:13},{n:"Repli",t:"normal",p:0,l:20},{n:"Surf",t:"eau",p:90,l:28}],
+  8:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Surf",t:"eau",p:90,l:27},{n:"Jackpot",t:"normal",p:40,l:30},{n:"Hydrocanon",t:"eau",p:110,l:40}],
+  9:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Hydrocanon",t:"eau",p:110,l:1},{n:"Blizzard",t:"glace",p:95,l:40}],
+  10:[{n:"Charge",t:"normal",p:35,l:1},{n:"Mécord",t:"normal",p:0,l:1}],
+  11:[{n:"Armure",t:"normal",p:0,l:1}],
+  12:[{n:"Charge",t:"normal",p:35,l:1},{n:"Tornade",t:"normal",p:40,l:1},{n:"Poudre Dodo",t:"normal",p:0,l:12},{n:"Psyko",t:"psy",p:90,l:15}],
+  13:[{n:"Charge",t:"normal",p:35,l:1},{n:"Dard-Venin",t:"poison",p:15,l:1}],
+  14:[{n:"Armure",t:"normal",p:0,l:1}],
+  15:[{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Charge",t:"normal",p:35,l:1},{n:"Tornade",t:"normal",p:40,l:10},{n:"Aiguillon",t:"insecte",p:25,l:15},{n:"Double-Dard",t:"insecte",p:50,l:20}],
+  16:[{n:"Charge",t:"normal",p:35,l:1},{n:"Tornade",t:"normal",p:40,l:5},{n:"Vive-Attaque",t:"normal",p:40,l:12},{n:"Rugissement",t:"normal",p:0,l:17}],
+  17:[{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Tornade",t:"normal",p:40,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Aéropique",t:"normal",p:60,l:18}],
+  18:[{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Aéropique",t:"normal",p:60,l:1},{n:"Tornade",t:"normal",p:40,l:1},{n:"Ouragan",t:"normal",p:100,l:40}],
+  19:[{n:"Charge",t:"normal",p:35,l:1},{n:"Queue",t:"normal",p:0,l:1},{n:"Morsure",t:"normal",p:40,l:7},{n:"Vive-Attaque",t:"normal",p:40,l:14}],
+  20:[{n:"Morsure",t:"normal",p:40,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Jackpot",t:"normal",p:40,l:1}],
+  21:[{n:"Picpic",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:9}],
+  22:[{n:"Picpic",t:"normal",p:35,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Aéropique",t:"normal",p:60,l:20},{n:"Tranche",t:"normal",p:50,l:30}],
+  23:[{n:"Charge",t:"normal",p:35,l:1},{n:"Enroulement",t:"normal",p:0,l:1},{n:"Morsure",t:"normal",p:40,l:9},{n:"Acide",t:"poison",p:40,l:14}],
+  24:[{n:"Morsure",t:"normal",p:40,l:1},{n:"Acide",t:"poison",p:40,l:1},{n:"Croc-Poison",t:"poison",p:55,l:20},{n:"Jackpot",t:"normal",p:40,l:30}],
+  25:[{n:"Charge",t:"normal",p:35,l:1},{n:"Queue",t:"normal",p:0,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:9},{n:"Eclair",t:"electrik",p:40,l:16},{n:"Tonnerre",t:"electrik",p:90,l:26}],
+  26:[{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Eclair",t:"electrik",p:40,l:1},{n:"Tonnerre",t:"electrik",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Fulmigène",t:"electrik",p:110,l:40}],
+  27:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Griffe",t:"normal",p:35,l:7},{n:"Dard-Venin",t:"poison",p:15,l:15},{n:"Tranche",t:"normal",p:50,l:27}],
+  28:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Séisme",t:"sol",p:100,l:40}],
+  29:[{n:"Charge",t:"normal",p:35,l:1},{n:"Queue",t:"normal",p:0,l:1},{n:"Morsure",t:"normal",p:40,l:9},{n:"Dard-Venin",t:"poison",p:15,l:13}],
+  30:[{n:"Morsure",t:"normal",p:40,l:1},{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Rugissement",t:"normal",p:0,l:1}],
+  31:[{n:"Morsure",t:"normal",p:40,l:1},{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Séisme",t:"sol",p:100,l:1}],
+  32:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Dard-Venin",t:"poison",p:15,l:8},{n:"Morsure",t:"normal",p:40,l:14}],
+  33:[{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1}],
+  34:[{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Séisme",t:"sol",p:100,l:1}],
+  35:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Berceuse",t:"normal",p:0,l:9},{n:"Coup Météore",t:"normal",p:90,l:35}],
+  36:[{n:"Charge",t:"normal",p:35,l:1},{n:"Berceuse",t:"normal",p:0,l:1},{n:"Coup Météore",t:"normal",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1}],
+  37:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Flammèche",t:"feu",p:40,l:7},{n:"Plaquage",t:"normal",p:85,l:16},{n:"Lance-Flammes",t:"feu",p:90,l:30}],
+  38:[{n:"Flammèche",t:"feu",p:40,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Plaquage",t:"normal",p:85,l:1},{n:"Deflagraton",t:"feu",p:110,l:38}],
+  39:[{n:"Charge",t:"normal",p:35,l:1},{n:"Berceuse",t:"normal",p:0,l:9},{n:"Chanson",t:"normal",p:0,l:14},{n:"Claque",t:"normal",p:40,l:19},{n:"Coup Météore",t:"normal",p:90,l:35}],
+  40:[{n:"Charge",t:"normal",p:35,l:1},{n:"Berceuse",t:"normal",p:0,l:1},{n:"Claque",t:"normal",p:40,l:1},{n:"Coup Météore",t:"normal",p:90,l:1}],
+  41:[{n:"Charge",t:"normal",p:35,l:1},{n:"Criard",t:"normal",p:0,l:1},{n:"Croc-Poison",t:"poison",p:55,l:15},{n:"Vampigraine",t:"plante",p:0,l:21}],
+  42:[{n:"Croc-Poison",t:"poison",p:55,l:1},{n:"Vampigraine",t:"plante",p:0,l:1},{n:"Griffe",t:"normal",p:35,l:1},{n:"Tornade",t:"normal",p:40,l:1}],
+  43:[{n:"Charge",t:"normal",p:35,l:1},{n:"Acide",t:"poison",p:40,l:7},{n:"Poudre Toxik",t:"poison",p:0,l:13},{n:"Tranch-Herbe",t:"plante",p:55,l:19}],
+  44:[{n:"Acide",t:"poison",p:40,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:1},{n:"Poudre Dodo",t:"normal",p:0,l:15}],
+  45:[{n:"Acide",t:"poison",p:40,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:1},{n:"Lance-Soleil",t:"plante",p:90,l:1},{n:"Poudre Toxik",t:"poison",p:0,l:1}],
+  46:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Poudre Dodo",t:"normal",p:0,l:13},{n:"Tranch-Herbe",t:"plante",p:55,l:17}],
+  47:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:1},{n:"Poudre Toxik",t:"poison",p:0,l:1},{n:"Séisme",t:"sol",p:100,l:40}],
+  48:[{n:"Charge",t:"normal",p:35,l:1},{n:"Dard-Venin",t:"poison",p:15,l:10},{n:"Poudre Toxik",t:"poison",p:0,l:15}],
+  49:[{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Poudre Toxik",t:"poison",p:0,l:1},{n:"Psyko",t:"psy",p:90,l:28}],
+  50:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:15},{n:"Séisme",t:"sol",p:100,l:26}],
+  51:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Séisme",t:"sol",p:100,l:1}],
+  52:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Morsure",t:"normal",p:40,l:12},{n:"Jackpot",t:"normal",p:40,l:17}],
+  53:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1}],
+  54:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:10},{n:"Griffe",t:"normal",p:35,l:23}],
+  55:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Griffe",t:"normal",p:35,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Psyko",t:"psy",p:90,l:1},{n:"Hydrocanon",t:"eau",p:110,l:40}],
+  56:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Morsure",t:"normal",p:40,l:15}],
+  57:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1}],
+  58:[{n:"Morsure",t:"normal",p:40,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Flammèche",t:"feu",p:40,l:9},{n:"Grogne",t:"normal",p:0,l:15}],
+  59:[{n:"Flammèche",t:"feu",p:40,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Deflagraton",t:"feu",p:110,l:1}],
+  60:[{n:"Charge",t:"normal",p:35,l:1},{n:"Queue",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:7},{n:"Jackpot",t:"normal",p:40,l:15}],
+  61:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Surf",t:"eau",p:90,l:30}],
+  62:[{n:"Surf",t:"eau",p:90,l:1},{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Poing-Karaté",t:"combat",p:50,l:1},{n:"Hydrocanon",t:"eau",p:110,l:40}],
+  63:[{n:"Téléport",t:"psy",p:0,l:1},{n:"Choc Mental",t:"psy",p:50,l:10},{n:"Psyko",t:"psy",p:90,l:16}],
+  64:[{n:"Choc Mental",t:"psy",p:50,l:1},{n:"Psyko",t:"psy",p:90,l:1},{n:"Téléport",t:"psy",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:1}],
+  65:[{n:"Choc Mental",t:"psy",p:50,l:1},{n:"Psyko",t:"psy",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Rayon Psyk",t:"psy",p:110,l:38}],
+  66:[{n:"Charge",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Poing-Karaté",t:"combat",p:50,l:1},{n:"Rugissement",t:"normal",p:0,l:16}],
+  67:[{n:"Poing-Karaté",t:"combat",p:50,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Coup Bas",t:"combat",p:60,l:25}],
+  68:[{n:"Poing-Karaté",t:"combat",p:50,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Coup Bas",t:"combat",p:60,l:1},{n:"Dynamopoing",t:"combat",p:100,l:1}],
+  69:[{n:"Charge",t:"normal",p:35,l:1},{n:"Vampigraine",t:"plante",p:0,l:1},{n:"Acide",t:"poison",p:40,l:13}],
+  70:[{n:"Vampigraine",t:"plante",p:0,l:1},{n:"Acide",t:"poison",p:40,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:1}],
+  71:[{n:"Vampigraine",t:"plante",p:0,l:1},{n:"Acide",t:"poison",p:40,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:1},{n:"Lance-Soleil",t:"plante",p:90,l:38}],
+  72:[{n:"Charge",t:"normal",p:35,l:1},{n:"Acide",t:"poison",p:40,l:1},{n:"Dard-Venin",t:"poison",p:15,l:10}],
+  73:[{n:"Acide",t:"poison",p:40,l:1},{n:"Dard-Venin",t:"poison",p:15,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Hydrocanon",t:"eau",p:110,l:40}],
+  74:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:9},{n:"Éboulement",t:"roche",p:50,l:11}],
+  75:[{n:"Jackpot",t:"normal",p:40,l:1},{n:"Éboulement",t:"roche",p:50,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Séisme",t:"sol",p:100,l:30}],
+  76:[{n:"Jackpot",t:"normal",p:40,l:1},{n:"Éboulement",t:"roche",p:50,l:1},{n:"Séisme",t:"sol",p:100,l:1},{n:"Explosion",t:"normal",p:200,l:40}],
+  77:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Flammèche",t:"feu",p:40,l:9},{n:"Étincelle",t:"feu",p:65,l:25},{n:"Lance-Flammes",t:"feu",p:90,l:36}],
+  78:[{n:"Flammèche",t:"feu",p:40,l:1},{n:"Étincelle",t:"feu",p:65,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Deflagraton",t:"feu",p:110,l:40}],
+  79:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:18},{n:"Psyko",t:"psy",p:90,l:33}],
+  80:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Psyko",t:"psy",p:90,l:1},{n:"Amnésie",t:"psy",p:0,l:1}],
+  81:[{n:"Charge",t:"normal",p:35,l:1},{n:"Éblouissement",t:"normal",p:0,l:1},{n:"Eclair",t:"electrik",p:40,l:21},{n:"Tonnerre",t:"electrik",p:90,l:40}],
+  82:[{n:"Eclair",t:"electrik",p:40,l:1},{n:"Tonnerre",t:"electrik",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Fulmigène",t:"electrik",p:110,l:40}],
+  83:[{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1}],
+  84:[{n:"Picpic",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:20}],
+  85:[{n:"Picpic",t:"normal",p:35,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1}],
+  86:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:14}],
+  87:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Blizzard",t:"glace",p:95,l:40}],
+  88:[{n:"Charge",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Acide",t:"poison",p:40,l:10}],
+  89:[{n:"Acide",t:"poison",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Déflagraton",t:"feu",p:110,l:1},{n:"Explosion",t:"normal",p:200,l:40}],
+  90:[{n:"Charge",t:"normal",p:35,l:1},{n:"Repli",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:10}],
+  91:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Blizzard",t:"glace",p:95,l:1},{n:"Hydrocanon",t:"eau",p:110,l:40}],
+  92:[{n:"Léchouille",t:"spectre",p:25,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Croc Nuit",t:"spectre",p:50,l:15}],
+  93:[{n:"Léchouille",t:"spectre",p:25,l:1},{n:"Croc Nuit",t:"spectre",p:50,l:1},{n:"Malédiction",t:"spectre",p:0,l:1}],
+  94:[{n:"Croc Nuit",t:"spectre",p:50,l:1},{n:"Léchouille",t:"spectre",p:25,l:1},{n:"Ball'Ombre",t:"spectre",p:80,l:1},{n:"Psyko",t:"psy",p:90,l:1}],
+  95:[{n:"Charge",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Éboulement",t:"roche",p:50,l:14},{n:"Séisme",t:"sol",p:100,l:38}],
+  96:[{n:"Choc Mental",t:"psy",p:50,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Berceuse",t:"normal",p:0,l:1},{n:"Psyko",t:"psy",p:90,l:22}],
+  97:[{n:"Psyko",t:"psy",p:90,l:1},{n:"Choc Mental",t:"psy",p:50,l:1},{n:"Berceuse",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:1}],
+  98:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:20},{n:"Éboulement",t:"roche",p:50,l:30}],
+  99:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Éboulement",t:"roche",p:50,l:1}],
+  100:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Eclair",t:"electrik",p:40,l:17},{n:"Tonnerre",t:"electrik",p:90,l:34}],
+  101:[{n:"Eclair",t:"electrik",p:40,l:1},{n:"Tonnerre",t:"electrik",p:90,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Explosion",t:"normal",p:200,l:1}],
+  102:[{n:"Charge",t:"normal",p:35,l:1},{n:"Vampigraine",t:"plante",p:0,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:17}],
+  103:[{n:"Tranch-Herbe",t:"plante",p:55,l:1},{n:"Vampigraine",t:"plante",p:0,l:1},{n:"Lance-Soleil",t:"plante",p:90,l:1},{n:"Séisme",t:"sol",p:100,l:40}],
+  104:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:13},{n:"Morsure",t:"normal",p:40,l:20}],
+  105:[{n:"Jackpot",t:"normal",p:40,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Séisme",t:"sol",p:100,l:1}],
+  106:[{n:"Pied Sauté",t:"combat",p:60,l:1},{n:"Poing-Karaté",t:"combat",p:50,l:1},{n:"Roue de Feu",t:"combat",p:80,l:1}],
+  107:[{n:"Jackpot",t:"normal",p:40,l:1},{n:"Poing-Karaté",t:"combat",p:50,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Dynamopoing",t:"combat",p:100,l:1}],
+  108:[{n:"Charge",t:"normal",p:35,l:1},{n:"Berceuse",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:1}],
+  109:[{n:"Charge",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Acide",t:"poison",p:40,l:20},{n:"Brouillard",t:"normal",p:0,l:1}],
+  110:[{n:"Acide",t:"poison",p:40,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Déflagraton",t:"feu",p:110,l:1},{n:"Explosion",t:"normal",p:200,l:40}],
+  111:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Coup d'Corne",t:"normal",p:65,l:20},{n:"Éboulement",t:"roche",p:50,l:30}],
+  112:[{n:"Coup d'Corne",t:"normal",p:65,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Éboulement",t:"roche",p:50,l:1},{n:"Séisme",t:"sol",p:100,l:1}],
+  113:[{n:"Charge",t:"normal",p:35,l:1},{n:"Berceuse",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Coup Météore",t:"normal",p:90,l:23}],
+  114:[{n:"Fouet Lianes",t:"plante",p:45,l:1},{n:"Vampigraine",t:"plante",p:0,l:1},{n:"Tranch-Herbe",t:"plante",p:55,l:1}],
+  115:[{n:"Charge",t:"normal",p:35,l:1},{n:"Griffe",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1}],
+  116:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:9}],
+  117:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Hydrocanon",t:"eau",p:110,l:40}],
+  118:[{n:"Charge",t:"normal",p:35,l:1},{n:"Picpic",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:24}],
+  119:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Picpic",t:"normal",p:35,l:1},{n:"Tranche",t:"normal",p:50,l:1}],
+  120:[{n:"Charge",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1}],
+  121:[{n:"Jackpot",t:"normal",p:40,l:1},{n:"Psyko",t:"psy",p:90,l:1},{n:"Blizzard",t:"glace",p:95,l:1},{n:"Rayon Glace",t:"glace",p:90,l:1}],
+  122:[{n:"Choc Mental",t:"psy",p:50,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Psyko",t:"psy",p:90,l:1}],
+  123:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Double-Dard",t:"insecte",p:50,l:1}],
+  124:[{n:"Choc Mental",t:"psy",p:50,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Coup Langue",t:"glace",p:45,l:1},{n:"Blizzard",t:"glace",p:95,l:38}],
+  125:[{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Eclair",t:"electrik",p:40,l:1},{n:"Tonnerre",t:"electrik",p:90,l:1},{n:"Fulmigène",t:"electrik",p:110,l:38}],
+  126:[{n:"Flammèche",t:"feu",p:40,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Deflagraton",t:"feu",p:110,l:38}],
+  127:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Double-Dard",t:"insecte",p:50,l:1},{n:"Tranche",t:"normal",p:50,l:1}],
+  128:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Plaquage",t:"normal",p:85,l:1}],
+  129:[{n:"Charge",t:"normal",p:35,l:1},{n:"Trempette",t:"normal",p:0,l:1}],
+  130:[{n:"Morsure",t:"normal",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Hydrocanon",t:"eau",p:110,l:1},{n:"Dracogriffe",t:"dragon",p:80,l:1},{n:"Tranche",t:"normal",p:50,l:1}],
+  131:[{n:"Surf",t:"eau",p:90,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Blizzard",t:"glace",p:95,l:1},{n:"Pistolet O",t:"eau",p:40,l:1}],
+  132:[{n:"Transformation",t:"normal",p:0,l:1}],
+  133:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:9},{n:"Morsure",t:"normal",p:40,l:19}],
+  134:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Hydrocanon",t:"eau",p:110,l:1}],
+  135:[{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Eclair",t:"electrik",p:40,l:1},{n:"Tonnerre",t:"electrik",p:90,l:1},{n:"Fulmigène",t:"electrik",p:110,l:1}],
+  136:[{n:"Flammèche",t:"feu",p:40,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Deflagraton",t:"feu",p:110,l:1}],
+  137:[{n:"Charge",t:"normal",p:35,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Rayon Laser",t:"normal",p:90,l:30},{n:"Psyko",t:"psy",p:90,l:35}],
+  138:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:25}],
+  139:[{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Surf",t:"eau",p:90,l:1},{n:"Éboulement",t:"roche",p:50,l:1},{n:"Hydrocanon",t:"eau",p:110,l:40}],
+  140:[{n:"Charge",t:"normal",p:35,l:1},{n:"Griffe",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Pistolet O",t:"eau",p:40,l:25}],
+  141:[{n:"Griffe",t:"normal",p:35,l:1},{n:"Pistolet O",t:"eau",p:40,l:1},{n:"Tranche",t:"normal",p:50,l:1},{n:"Éboulement",t:"roche",p:50,l:1}],
+  142:[{n:"Rugissement",t:"normal",p:0,l:1},{n:"Vive-Attaque",t:"normal",p:40,l:1},{n:"Morsure",t:"normal",p:40,l:1},{n:"Éboulement",t:"roche",p:50,l:1}],
+  143:[{n:"Charge",t:"normal",p:35,l:1},{n:"Berceuse",t:"normal",p:0,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Plaquage",t:"normal",p:85,l:1}],
+  144:[{n:"Rayon Glace",t:"glace",p:90,l:1},{n:"Blizzard",t:"glace",p:95,l:1},{n:"Aéropique",t:"normal",p:60,l:1}],
+  145:[{n:"Eclair",t:"electrik",p:40,l:1},{n:"Tonnerre",t:"electrik",p:90,l:1},{n:"Fulmigène",t:"electrik",p:110,l:1},{n:"Aéropique",t:"normal",p:60,l:1}],
+  146:[{n:"Flammèche",t:"feu",p:40,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Deflagraton",t:"feu",p:110,l:1},{n:"Aéropique",t:"normal",p:60,l:1}],
+  147:[{n:"Charge",t:"normal",p:35,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Tornade",t:"normal",p:40,l:20}],
+  148:[{n:"Charge",t:"normal",p:35,l:1},{n:"Tornade",t:"normal",p:40,l:1},{n:"Rugissement",t:"normal",p:0,l:1},{n:"Dracogriffe",t:"dragon",p:80,l:35}],
+  149:[{n:"Dracogriffe",t:"dragon",p:80,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Ouragan",t:"normal",p:100,l:1},{n:"Blizzard",t:"glace",p:95,l:1}],
+  150:[{n:"Psyko",t:"psy",p:90,l:1},{n:"Rayon Psyk",t:"psy",p:110,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Blizzard",t:"glace",p:95,l:1}],
+  151:[{n:"Psyko",t:"psy",p:90,l:1},{n:"Jackpot",t:"normal",p:40,l:1},{n:"Lance-Flammes",t:"feu",p:90,l:1},{n:"Blizzard",t:"glace",p:95,l:1}]
+};
+
+// Retourne toutes les attaques apprises jusqu'au niveau donné
+function allLearnedMoves(id,lvl){
+  let pool=(MP[id]||[{n:"Charge",t:"normal",p:35,l:1}]).filter(m=>m.l<=lvl);
+  if(!pool.length) pool=[{n:"Charge",t:"normal",p:35,l:1}];
+  return pool;
+}
+
+// Retourne les 4 attaques actives (par défaut les 4 dernières apprises)
+function defaultActiveMoves(id,lvl){
+  let all=allLearnedMoves(id,lvl);
+  return all.slice(-4).map(m=>m.n);
+}
+
+const evolutions={1:{l:16,to:2},2:{l:32,to:3},4:{l:16,to:5},5:{l:36,to:6},7:{l:16,to:8},8:{l:36,to:9},10:{l:7,to:11},11:{l:10,to:12},13:{l:7,to:14},14:{l:10,to:15},16:{l:18,to:17},17:{l:36,to:18},19:{l:20,to:20},21:{l:20,to:22},23:{l:22,to:24},27:{l:22,to:28},29:{l:16,to:30},30:{l:32,to:31},32:{l:16,to:33},33:{l:32,to:34},41:{l:22,to:42},43:{l:21,to:44},46:{l:24,to:47},48:{l:31,to:49},50:{l:26,to:51},52:{l:28,to:53},54:{l:33,to:55},56:{l:28,to:57},60:{l:16,to:61},61:{l:36,to:62},63:{l:16,to:64},64:{l:36,to:65},66:{l:28,to:67},67:{l:40,to:68},69:{l:21,to:70},72:{l:30,to:73},74:{l:25,to:75},75:{l:36,to:76},77:{l:40,to:78},79:{l:37,to:80},81:{l:30,to:82},84:{l:31,to:85},86:{l:34,to:87},88:{l:38,to:89},92:{l:25,to:93},93:{l:null,to:94},96:{l:36,to:97},98:{l:28,to:99},100:{l:30,to:101},102:{l:null,to:103},104:{l:28,to:105},109:{l:35,to:110},111:{l:42,to:112},116:{l:32,to:117},118:{l:33,to:119},120:{l:null,to:121},129:{l:20,to:130},138:{l:40,to:139},140:{l:40,to:141},147:{l:30,to:148},148:{l:55,to:149}};
+
+const basePokemon=new Set([1,4,7,10,13,16,19,21,23,25,27,29,32,35,37,39,41,43,46,48,50,52,54,56,58,60,63,66,69,72,74,77,79,81,84,86,88,90,92,95,96,98,100,102,104,106,107,108,109,111,113,114,116,118,120,122,123,124,125,126,127,128,129,131,132,133,137,138,140,142,143,147]);
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let found =JSON.parse(localStorage.getItem("found"))||[];
+let shiny  =JSON.parse(localStorage.getItem("shiny"))||{};
+let roster =JSON.parse(localStorage.getItem("roster"))||[];
+let wins   =parseInt(localStorage.getItem("wins"))||0;
+
+function saveAll(){
+  localStorage.setItem("found",JSON.stringify(found));
+  localStorage.setItem("shiny",JSON.stringify(shiny));
+  localStorage.setItem("roster",JSON.stringify(roster));
+  localStorage.setItem("wins",wins);
+}
+
+function enemyLvl(){return Math.max(1,Math.floor(2*Math.pow(1.18,wins)))+Math.floor(Math.random()*3);}
+
+// ══════════════════════════════════════════════
+// POKÉDEX
+// ══════════════════════════════════════════════
+function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function findId(v){
+  v=v.trim();let n=parseInt(v);
+  if(!isNaN(n)&&n>=1&&n<=151)return n;
+  let l=norm(v);
+  for(let i=0;i<names.length;i++)if(norm(names[i])===l)return i+1;
+  return null;
+}
+
+function add(){
+  let v=document.getElementById("input").value.trim(),id=findId(v);
+  if(!id||found.includes(id)){
+    document.getElementById("input").style.borderColor="#f55";
+    setTimeout(()=>document.getElementById("input").style.borderColor="",800);
+    return;
+  }
+  found.push(id);
+  let isNewShiny=Math.random()<1/32;
+  if(isNewShiny)shiny[id]=true;
+  saveAll();render();
+  document.getElementById("input").value="";
+  // Animation découverte
+  if(isNewShiny){
+    setTimeout(()=>showShinyAnim(id,names[id-1]),200);
+  } else {
+    // Petite animation de découverte normale
+    let cell=document.querySelector(`#grid .cell:nth-child(${id})`);
+    if(cell){cell.style.animation="none";void cell.offsetWidth;cell.style.animation="discoverPop 0.5s ease";}
+  }
+}
+
+function getSprite(id){return shiny[id]?`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${id}.png`:`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;}
+function badge(t){let c=typeColor[t]||"#888";return `<span class="tbadge" style="background:${c}22;color:${c};border:1px solid ${c}44">${t}</span>`;}
+
+function render(){
+  let g=document.getElementById("grid");g.innerHTML="";
+  for(let i=1;i<=151;i++){
+    let d=document.createElement("div"),f=found.includes(i),s=f&&shiny[i];
+    d.className="cell"+(s?" shinyFound":f?" found":"");
+    d.innerHTML=f?`<img src="${getSprite(i)}" loading="lazy"><div class="num">#${i}</div><div class="pname">${names[i-1]}${s?'<span class="shiny-badge">★</span>':''}</div>`:`<div class="num">#${i}</div><div style="font-size:22px;color:#333">?</div>`;
+    g.appendChild(d);
+  }
+  document.getElementById("count").textContent=found.length;
+  document.getElementById("shinyCount").textContent=Object.keys(shiny).length;
+  document.getElementById("winsSpan").textContent=wins;
+  document.getElementById("battleBtn").disabled=!found.some(id=>basePokemon.has(id));
+}
+
+function reset(){if(!confirm("Tout réinitialiser ?"))return;localStorage.clear();found=[];shiny={};roster=[];wins=0;hideBattle();render();}
+function giveUp(){found=[...Array(151)].map((_,i)=>i+1);saveAll();render();}
+
+// ══════════════════════════════════════════════
+// CRÉATION POKÉMON
+// ══════════════════════════════════════════════
+function xpNeed(lvl){return Math.floor(25+lvl*lvl*0.9);}
+
+function makePoke(id,lvl){
+  lvl=Math.min(100,lvl||1);
+  let t=ptype[id-1]||"normal";
+  let mhp=Math.floor(40+lvl*6+(lvl>15?lvl*3:0));
+  let activeNames=defaultActiveMoves(id,lvl);
+  return {id,name:names[id-1],type:t,level:lvl,xp:0,xpNeed:xpNeed(lvl),maxHp:mhp,hp:mhp,activeMoves:activeNames};
+}
+
+// Obtenir les objets move complets depuis les noms actifs
+function getActiveMoveObjs(p){
+  let all=allLearnedMoves(p.id,p.level);
+  return p.activeMoves.map(n=>all.find(m=>m.n===n)||{n,t:"normal",p:35,l:1});
+}
+
+// ══════════════════════════════════════════════
+// OVERLAY
+// ══════════════════════════════════════════════
+function showOv(html){document.getElementById("overlayBox").innerHTML=html;document.getElementById("overlay").style.display="block";}
+function hideOv(){document.getElementById("overlay").style.display="none";}
+
+// ══════════════════════════════════════════════
+// SÉLECTION + GESTION MOVES DU ROSTER
+// ══════════════════════════════════════════════
+let teamSel=[];
+
+function prepareBattle(){openTeamSelect();}
+
+function openTeamSelect(){
+  let avail=found.filter(id=>basePokemon.has(id));
+  if(!avail.length){alert("Aucune première évolution trouvée !");return;}
+  teamSel=roster.map(p=>p.id).filter(id=>avail.includes(id));
+
+  let eLvlEst=Math.floor(2*Math.pow(1.18,wins));
+  renderTeamSelectOv(avail,eLvlEst);
+}
+
+function renderTeamSelectOv(avail,eLvlEst){
+  // Onglets : 1 par pokemon du roster + sélection
+  let rosterPokes=roster.filter(p=>avail.includes(p.id));
+
+  let tabsHtml=`<div class="tabs">
+    <div class="tab active" id="tab-sel" onclick="switchTab('sel')">Sélection équipe</div>
+    ${rosterPokes.map(p=>`<div class="tab" id="tab-p${p.id}" onclick="switchTab('p${p.id}')">${p.name} Lv.${p.level}</div>`).join("")}
+  </div>`;
+
+  // Contenu onglet sélection
+  let cards=avail.map(id=>{
+    let inR=roster.find(p=>p.id===id);
+    let sel=teamSel.includes(id);
+    return `<div class="selCard${sel?" selected":""}" id="sc${id}" onclick="toggleSel(${id})">
+      <img src="${getSprite(id)}"><br>
+      <b>#${id} ${names[id-1]}</b><br>
+      ${badge(ptype[id-1]||"normal")}
+      ${inR?`<br><span style="color:lime;font-size:10px">Lv.${inR.level}</span><br><span style="color:#aaa;font-size:9px">${inR.activeMoves.length} attaques</span>`:`<br><span style="color:#666;font-size:9px">Nouveau (Lv.1)</span>`}
+    </div>`;
+  }).join("");
+
+  let selContent=`<div class="tabContent active" id="content-sel">
+    <p style="color:#aaa;font-size:12px;margin:0 0 10px">Victoires : <b>${wins}</b> — Niveau ennemi : ~<b>${eLvlEst}</b> — Sélectionne jusqu'à 3</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;max-height:50vh;overflow-y:auto;">${cards}</div>
+    <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="confirmTeam()">⚔️ Confirmer et combattre</button>
+      <button onclick="hideOv()">Annuler</button>
+    </div>
+  </div>`;
+
+  // Onglets moves pour chaque pokemon du roster
+  let movesContents=rosterPokes.map(p=>`<div class="tabContent" id="content-p${p.id}">${renderMoveEditor(p)}</div>`).join("");
+
+  showOv(`<h2 style="margin:0 0 10px">Équipe & Attaques</h2>${tabsHtml}${selContent}${movesContents}`);
+}
+
+function switchTab(id){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll(".tabContent").forEach(t=>t.classList.remove("active"));
+  document.getElementById("tab-"+id).classList.add("active");
+  document.getElementById("content-"+id).classList.add("active");
+}
+
+function renderMoveEditor(p){
+  let all=allLearnedMoves(p.id,p.level);
+  let rows=all.map(m=>{
+    let active=p.activeMoves.includes(m.n);
+    let c=typeColor[m.t]||"#999";
+    return `<tr class="${active?"active-move":"learned"}">
+      <td><input type="checkbox" class="move-cb" ${active?"checked":""} onchange="toggleMove(${p.id},'${m.n}',this)" ${!active&&p.activeMoves.length>=4?"disabled":""}></td>
+      <td><b>${m.n}</b></td>
+      <td>${badge(m.t)}</td>
+      <td style="color:${m.p?c:"#666"}">${m.p||"—"}</td>
+      <td style="color:#666">Lv.${m.l}</td>
+    </tr>`;
+  }).join("");
+
+  return `<div style="margin-top:6px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <img src="${getSprite(p.id)}" style="width:50px">
+      <div style="text-align:left">
+        <div style="font-weight:bold">${p.name} ${badge(p.type)}</div>
+        <div style="font-size:11px;color:#aaa">Lv.${p.level} · ${p.activeMoves.length}/4 attaques actives</div>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#888;margin:0 0 8px">Coche exactement 4 attaques à utiliser en combat.</p>
+    <table class="move-table">
+      <tr><th></th><th>Attaque</th><th>Type</th><th>Puis.</th><th>Apprise</th></tr>
+      ${rows}
+    </table>
+  </div>`;
+}
+
+function toggleMove(id,moveName,cb){
+  let p=roster.find(r=>r.id===id);
+  if(!p)return;
+  if(cb.checked){
+    if(p.activeMoves.length>=4){cb.checked=false;return;}
+    p.activeMoves.push(moveName);
+  } else {
+    if(p.activeMoves.length<=1){cb.checked=true;return;}
+    p.activeMoves=p.activeMoves.filter(n=>n!==moveName);
+  }
+  // Mettre à jour disabled sur les autres cases
+  let all=allLearnedMoves(p.id,p.level);
+  let full=p.activeMoves.length>=4;
+  all.forEach(m=>{
+    // retrouver la checkbox
+    // on rerender l'onglet plutôt
+  });
+  saveAll();
+  // Rerender l'onglet
+  document.getElementById(`content-p${id}`).innerHTML=renderMoveEditor(p);
+}
+
+function toggleSel(id){
+  let i=teamSel.indexOf(id);
+  if(i>=0){teamSel.splice(i,1);}
+  else{if(teamSel.length>=3){alert("Max 3 !");return;}teamSel.push(id);}
+  document.querySelectorAll("[id^='sc']").forEach(el=>{
+    let sid=parseInt(el.id.slice(2));
+    el.classList.toggle("selected",teamSel.includes(sid));
+  });
+}
+
+function confirmTeam(){
+  if(!teamSel.length){alert("Sélectionne au moins 1 Pokémon !");return;}
+  let team=teamSel.map(id=>{
+    let ex=roster.find(p=>p.id===id);
+    let p=ex?JSON.parse(JSON.stringify(ex)):makePoke(id,1);
+    p.hp=p.maxHp; // PV pleins
+    return p;
+  });
+  hideOv();startBattle(team);
+}
+
+// ══════════════════════════════════════════════
+// ANIMATIONS
+// ══════════════════════════════════════════════
+function spawnParticles(x,y,color,count=12){
+  let c=document.getElementById("particles");
+  for(let i=0;i<count;i++){
+    let d=document.createElement("div");
+    d.className="particle";
+    let angle=Math.random()*Math.PI*2;
+    let dist=50+Math.random()*80;
+    d.style.cssText=`left:${x}px;top:${y}px;width:${4+Math.random()*6}px;height:${4+Math.random()*6}px;background:${color};--tx:${Math.cos(angle)*dist}px;--ty:${Math.sin(angle)*dist-60}px;--dur:${0.5+Math.random()*0.7}s;animation-delay:${Math.random()*0.15}s`;
+    c.appendChild(d);
+    setTimeout(()=>d.remove(),1200);
+  }
+}
+
+function particlesAt(elId,color,count){
+  let el=document.getElementById(elId);
+  if(!el)return;
+  let r=el.getBoundingClientRect();
+  spawnParticles(r.left+r.width/2, r.top+r.height/2, color, count);
+}
+
+function flashCard(id,isEnemy=false){
+  let el=document.getElementById(id);
+  if(!el)return;
+  el.classList.remove("hit-enemy","hit-player");
+  void el.offsetWidth;
+  el.classList.add(isEnemy?"hit-enemy":"hit-player");
+  // Flash rouge
+  let f=document.createElement("div");
+  f.className="dmg-flash"; el.appendChild(f);
+  setTimeout(()=>f.remove(),450);
+  setTimeout(()=>{el.classList.remove("hit-enemy","hit-player");},380);
+}
+
+function showLvlBanner(name,lvl){
+  let b=document.getElementById("lvlUpBanner");
+  b.textContent=`⬆️ ${name} → Lv. ${lvl} !`;
+  b.style.display="block";
+  setTimeout(()=>b.style.display="none",1800);
+}
+
+function showEvoBanner(oldName,newName,id){
+  let b=document.getElementById("evoBanner");
+  b.innerHTML=`<div style="background:rgba(0,0,0,0.85);border:2px solid gold;border-radius:16px;padding:20px 36px;animation:bannerPop 0.4s">
+    <div style="font-size:14px;color:#aaa;margin-bottom:8px">✨ Évolution !</div>
+    <div style="display:flex;align-items:center;gap:16px;justify-content:center">
+      <img src="${getSprite(id-1)}" style="width:60px;filter:brightness(0.4) sepia(1) hue-rotate(200deg)">
+      <div style="font-size:28px">→</div>
+      <img src="${getSprite(id)}" style="width:70px;animation:evoSpin 0.6s ease">
+    </div>
+    <div style="font-size:18px;color:gold;margin-top:8px"><b>${oldName}</b> → <b>${newName}</b></div>
+  </div>`;
+  b.style.display="block";
+  particlesAt("evoBanner","gold",20);
+  setTimeout(()=>b.style.display="none",2800);
+}
+
+function showShinyAnim(id,name){
+  let o=document.getElementById("shinyOverlay");
+  o.innerHTML=`<div style="position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(circle at center,rgba(255,220,0,0.25) 0%,transparent 70%);animation:shinyBg 2s forwards"></div>
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;animation:shinyPop 0.5s ease">
+    <div style="font-size:50px;margin-bottom:10px;animation:shinyStar 1s infinite">✨</div>
+    <img src="${getSprite(id)}" style="width:90px;filter:drop-shadow(0 0 16px gold) drop-shadow(0 0 32px #ff0)">
+    <div style="font-size:22px;color:gold;margin-top:10px;font-weight:bold;text-shadow:0 0 12px gold">✨ ${name} SHINY ! ✨</div>
+  </div>`;
+  // étoiles partout
+  for(let i=0;i<30;i++){
+    let s=document.createElement("div");
+    s.style.cssText=`position:absolute;top:${Math.random()*100}%;left:${Math.random()*100}%;font-size:${12+Math.random()*20}px;animation:shinyStar ${0.5+Math.random()*1.5}s infinite;animation-delay:${Math.random()*1}s;opacity:0.8`;
+    s.textContent="⭐";
+    o.appendChild(s);
+  }
+  o.style.display="block";
+  setTimeout(()=>{o.style.display="none";o.innerHTML="";},3200);
+}
+
+// Ajouter keyframes dynamiquement
+(function(){
+  let s=document.createElement("style");
+  s.textContent=`
+    @keyframes shinyBg{0%{opacity:0}20%{opacity:1}80%{opacity:1}100%{opacity:0}}
+    @keyframes shinyPop{0%{transform:translate(-50%,-50%) scale(0.3);opacity:0}60%{transform:translate(-50%,-50%) scale(1.1)}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+    @keyframes shinyStar{0%,100%{transform:scale(1) rotate(0deg);opacity:0.8}50%{transform:scale(1.3) rotate(180deg);opacity:1}}
+    @keyframes evoSpin{0%{transform:scale(0) rotate(-180deg);opacity:0}100%{transform:scale(1) rotate(0deg);opacity:1}}
+  `;
+  document.head.appendChild(s);
+})();
+
+// ══════════════════════════════════════════════
+// COMBAT
+// ══════════════════════════════════════════════
+let player=[],enemy=[],curP=0,curE=0,over=false,busy=false;
+// xpContribs[enemyIdx] = Set des index joueurs qui ont combattu ce pokémon
+let xpContribs=[];
+const DELAY_ATK=950, DELAY_KO=750;
+
+function startBattle(team){
+  player=team;
+  let el=enemyLvl();
+  let pool=[...basePokemon].filter(id=>id!==132).sort(()=>Math.random()-0.5).slice(0,3);
+  enemy=pool.map(id=>makePoke(id,el+Math.floor(Math.random()*3)));
+  xpContribs=enemy.map(()=>new Set());
+  curP=0; curE=0; over=false; busy=false;
+  document.getElementById("battle").style.display="flex";
+  document.getElementById("log").innerHTML="";
+  logB(`⚔️ Combat #${wins+1} — ennemis niv. ~${el}`, "");
+  // Enregistrer le premier joueur actif
+  xpContribs[curE].add(curP);
+  renderBattle();
+}
+
+function hpCol(r){return r>0.6?"green":r>0.3?"orange":"red";}
+
+function activeCardHtml(p,isEnemy){
+  if(!p)return "";
+  let r=Math.max(0,p.hp/p.maxHp);
+  let xr=p.level>=100?1:Math.min(1,p.xp/p.xpNeed);
+  let imgStyle=p.hp<=0?"filter:grayscale(1);opacity:0.25;transform:rotate(-10deg)":"";
+  return `<div class="activeCard" id="${isEnemy?"enemyActiveCard":"playerActiveCard"}">
+    <div style="display:flex;align-items:center;gap:8px">
+      <img src="${getSprite(p.id)}" style="width:${isEnemy?56:48}px;transition:all 0.4s;${imgStyle}">
+      <div style="flex:1;text-align:left">
+        <div style="font-weight:bold;font-size:12px">${p.name} ${badge(p.type)}</div>
+        <div style="font-size:10px;color:#aaa">Lv.<b>${p.level}</b> · <span style="color:${r>0.5?"#8f8":r>0.25?"#fa0":"#f55"}">${Math.max(0,p.hp)}</span>/${p.maxHp} PV</div>
+      </div>
+    </div>
+    <div class="hpbar"><div class="hpfill ${hpCol(r)}" style="width:${Math.round(r*100)}%"></div></div>
+    ${!isEnemy?`<div class="xpbar"><div class="xpfill" style="width:${Math.round(xr*100)}%"></div></div>`:""}
+  </div>`;
+}
+
+function benchBallHtml(p,idx,isEnemy){
+  let isActive=isEnemy?(idx===curE):(idx===curP);
+  let alive=p.hp>0;
+  let cls="bench-ball"+(isActive?" active-ball":alive?" alive":" fainted");
+  let emoji=isActive?"🔴":alive?"⚪":"💀";
+  let onclick="";
+  if(!isEnemy&&!isActive&&alive&&!over&&!busy) onclick=`onclick="switchPokemon(${idx})"`;
+  if(isEnemy&&!isActive&&alive&&!over&&!busy) onclick=`onclick="setTarget(${idx})"`;
+  let hpPct=alive?Math.round(p.hp/p.maxHp*100):0;
+  return `<div class="${cls}" ${onclick}>${emoji}<div class="bench-tooltip"><b>${p.name}</b><br>Lv.${p.level}<br>${Math.max(0,p.hp)}/${p.maxHp} PV (${hpPct}%)${isActive?" ▶":!alive?" K.O.":""}</div></div>`;
+}
+
+function renderBattle(){
+  document.getElementById("playerActive").innerHTML=activeCardHtml(player[curP],false);
+  document.getElementById("playerBench").innerHTML=player.map((p,i)=>benchBallHtml(p,i,false)).join("");
+  document.getElementById("enemyActive").innerHTML=activeCardHtml(enemy[curE],true);
+  document.getElementById("enemyBench").innerHTML=enemy.map((p,i)=>benchBallHtml(p,i,true)).join("");
+  renderAtkZone();
+}
+
+function renderAtkZone(){
+  let az=document.getElementById("atkZone");
+  az.innerHTML="";
+  if(over||busy) return;
+  let p=player[curP];
+  if(!p||p.hp<=0) return;
+  let moves=getActiveMoveObjs(p);
+  let ae=enemy[curE];
+  let aeType=ptype[ae.id-1]||"normal";
+  let hasSwitch=player.some((pk,i)=>i!==curP&&pk.hp>0);
+  let switchBtn=hasSwitch
+    ?`<button onclick="openSwitchMenu()" style="margin-top:7px;width:100%;background:#1a1a2a;border-color:#448;font-size:11px">🔄 Switch <span style="color:#777;font-size:10px">(passe le tour)</span></button>`:"";
+  let btns=moves.map((m,i)=>{
+    let c=typeColor[m.t]||"#999";
+    let eff=multi(m.t,aeType);
+    let effHint=eff>=2?` <span style="color:lime;font-size:9px">▲▲</span>`:eff===0?` <span style="color:#f55;font-size:9px">✗</span>`:eff<1?` <span style="color:#fa0;font-size:9px">▼</span>`:"";
+    return `<button class="atk-btn" style="border-color:${c}55;color:${c};background:#181818" onclick="doAtk(${i})"><b>${m.n}</b>${badge(m.t)}<br><span style="font-size:9px;color:#666">${m.p||"—"} pwr${effHint}</span></button>`;
+  }).join("");
+  az.innerHTML=`<div style="font-size:10px;color:#f88;margin-bottom:5px">🎯 <b style="color:white">${ae.name}</b> · clic ⚪ ennemi pour changer cible</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">${btns}</div>${switchBtn}`;
+}
+
+function setTarget(idx){
+  if(over||busy||enemy[idx].hp<=0) return;
+  curE=idx;
+  xpContribs[curE].add(curP);
+  logB(`🎯 Cible : <b>${enemy[idx].name}</b>`,"");
+  renderBattle();
+}
+
+function openSwitchMenu(){
+  if(over||busy) return;
+  let ae=enemy[curE];
+  let choices=player.map((p,i)=>{
+    if(i===curP||p.hp<=0) return "";
+    let aeT=ptype[ae.id-1]||"normal";
+    let pT=ptype[p.id-1]||"normal";
+    // Indicateur si ce pokémon résiste ou est fort contre la cible
+    let defScore=multi(aeT,pT); // l'ennemi est efficace contre nous?
+    let hint=defScore>=2?`<span style="color:#f55;font-size:9px">⚠️ faible</span>`:defScore<1?`<span style="color:lime;font-size:9px">✓ résiste</span>`:"";
+    return `<div class="selCard" onclick="switchPokemon(${i})" style="display:inline-block;margin:5px;width:105px;vertical-align:top">
+      <img src="${getSprite(p.id)}" style="width:40px"><br><b>${p.name}</b><br>${badge(ptype[p.id-1]||"normal")}<br>
+      <span style="color:lime;font-size:10px">Lv.${p.level} · ${p.hp}/${p.maxHp}PV</span><br>${hint}</div>`;
+  }).join("");
+  document.getElementById("atkZone").innerHTML=`
+    <div style="font-size:11px;color:#fa0;margin-bottom:6px">⚠️ L'ennemi attaque pendant le switch !</div>
+    <div>${choices}</div>
+    <button onclick="renderAtkZone()" style="margin-top:6px;font-size:11px">Annuler</button>`;
+}
+
+function switchPokemon(idx){
+  if(over||busy||player[idx].hp<=0||idx===curP) return;
+  busy=true;
+  syncRoster(player[curP]);
+  let oldName=player[curP].name;
+  curP=idx;
+  xpContribs[curE].add(curP); // enregistrer contribution XP
+  logB(`↩️ <b>${oldName}</b> au repos. <b>${player[curP].name}</b> entre en combat !`,"");
+  renderBattle();
+  setTimeout(()=>enemyAttacks(()=>{busy=false;renderBattle();}), DELAY_ATK);
+}
+
+function disableAtks(){
+  busy=true;
+  document.getElementById("atkZone").querySelectorAll("button").forEach(b=>b.disabled=true);
+}
+
+function doAtk(mi){
+  if(over||busy) return;
+  disableAtks();
+  xpContribs[curE].add(curP);
+  let p=player[curP], e=enemy[curE];
+  let move=getActiveMoveObjs(p)[mi];
+  let eType=ptype[e.id-1]||"normal";
+  if(move.p>0){
+    let{d,m,crit}=calcDmg(move,p.level,eType,ptype[p.id-1]||"normal");
+    e.hp=Math.max(0,e.hp-d);
+    let critTxt=crit?` <b style='color:#ff6'>CRITIQUE !</b>`:"";
+    let cls=crit?"crit":m>=2?"super":m===0?"miss":"";
+    logB(`${p.name} → <b>${move.n}</b>${badge(move.t)} : <b>${d}</b> dégâts${effTxt(m)}${critTxt}`,cls);
+    flashCard("enemyActiveCard",true);
+    particlesAt("enemyActiveCard", m>=2?"#6f6":crit?"#ff6":"#f55", m>=2?16:crit?14:8);
+  } else {
+    logB(`${p.name} utilise <b>${move.n}</b>`,"");
+  }
+  renderBattle();
+
+  if(e.hp<=0){
+    setTimeout(()=>handleEnemyKO(e,()=>{
+      if(enemy.every(x=>x.hp<=0)){onVictory();return;}
+      busy=false; renderBattle();
+    }), DELAY_KO);
+    return;
+  }
+  setTimeout(()=>enemyAttacks(()=>{busy=false;renderBattle();}), DELAY_ATK);
+}
+
+// ─── IA ENNEMIE ───────────────────────────────
+// L'IA choisit la meilleure attaque selon les types
+function aiChooseMove(ae){
+  let moves=getActiveMoveObjs(ae);
+  let pType=ptype[player[curP].id-1]||"normal";
+  let scored=moves.map((m,i)=>{
+    if(!m.p) return {i,score:-1}; // Pas les attaques de statut en priorité
+    let m_eff=multi(m.t,pType);
+    // STAB bonus
+    let stab=(m.t===ptype[ae.id-1]||"normal")?1.2:1;
+    let score=m.p*m_eff*stab;
+    return {i,score};
+  });
+  // Trier par score décroissant
+  scored.sort((a,b)=>b.score-a.score);
+  // 70% meilleur coup, 20% deuxième, 10% aléatoire
+  let r=Math.random();
+  if(r<0.70&&scored.length>0) return scored[0].i;
+  if(r<0.90&&scored.length>1) return scored[1].i;
+  return scored[Math.floor(Math.random()*scored.length)].i;
+}
+
+// L'IA choisit si elle devrait switcher (basé sur désavantage de type)
+function aiShouldSwitch(ae){
+  // Pas de switch implémenté côté ennemi pour simplifier (ils ont 1 pokémon actif à la fois)
+  return false;
+}
+
+function enemyAttacks(cb){
+  if(enemy[curE].hp<=0){
+    let next=enemy.findIndex(e=>e.hp>0);
+    if(next<0){cb();return;}
+    curE=next;
+    logB(`⚔️ L'ennemi envoie <b>${enemy[curE].name}</b> !`,"");
+    xpContribs[curE].add(curP);
+    renderBattle();
+  }
+  let ae=enemy[curE], p=player[curP];
+  let pType=ptype[p.id-1]||"normal";
+  let mi=aiChooseMove(ae);
+  let em=getActiveMoveObjs(ae)[mi];
+  if(em.p>0){
+    let{d,m,crit}=calcDmg(em,ae.level,pType,ptype[ae.id-1]||"normal");
+    p.hp=Math.max(0,p.hp-d);
+    let critTxt=crit?` <b style='color:#ff6'>CRITIQUE !</b>`:"";
+    logB(`${ae.name} → <b>${em.n}</b>${badge(em.t)} : <b>${d}</b> dégâts${effTxt(m)}${critTxt}`,crit?"crit":"");
+    flashCard("playerActiveCard",false);
+    particlesAt("playerActiveCard","#f55",8);
+  } else {
+    logB(`${ae.name} utilise <b>${em.n}</b>`,"");
+  }
+  renderBattle();
+  syncRoster(p); saveAll();
+  if(p.hp<=0){
+    setTimeout(()=>{
+      logB(`💀 <b>${p.name}</b> K.O. !`,"ko");
+      syncRoster(p); renderBattle();
+      if(player.every(x=>x.hp<=0)){onDefeat();return;}
+      openForcedSwitch(cb);
+    }, DELAY_KO);
+  } else { cb(); }
+}
+
+// ─── XP PARTAGÉ ──────────────────────────────
+function giveSharedXP(e, eIdx){
+  let contributors=[...xpContribs[eIdx]].filter(i=>player[i]&&player[i].hp>0);
+  if(!contributors.length) contributors=[curP]; // fallback
+  let totalXp=Math.floor(10+e.level*2.5);
+  let xpEach=Math.max(1,Math.floor(totalXp/contributors.length));
+  contributors.forEach(pi=>{
+    let p=player[pi];
+    if(p.level>=100) return;
+    p.xp+=xpEach;
+    logB(`<span>+${xpEach} XP → <b>${p.name}</b>${contributors.length>1?" (partagé)":""}</span>`,"xp");
+    while(p.xp>=p.xpNeed&&p.level<100){
+      p.xp-=p.xpNeed; p.level++; p.xpNeed=xpNeed(p.level);
+      let mhp=Math.floor(40+p.level*6+(p.level>15?p.level*3:0));
+      p.maxHp=mhp; p.hp=Math.min(p.hp+15,mhp);
+      let newM=allLearnedMoves(p.id,p.level).filter(m=>m.l===p.level);
+      newM.forEach(nm=>{
+        logB(`📖 <b>${p.name}</b> apprend <b>${nm.n}</b> !`,"lvl");
+        if(p.activeMoves.length<4&&!p.activeMoves.includes(nm.n)) p.activeMoves.push(nm.n);
+      });
+      logB(`⬆️ <b>${p.name}</b> Lv. <b>${p.level}</b> !`,"lvl");
+      if(pi===curP) showLvlBanner(p.name,p.level);
+      let ev=evolutions[p.id];
+      if(ev&&(ev.l===null||p.level>=ev.l)){
+        let old=p.name, oldId=p.id;
+        p.id=ev.to; p.name=names[p.id-1]; p.type=ptype[p.id-1]||p.type;
+        p.activeMoves=defaultActiveMoves(p.id,p.level);
+        logB(`✨ <b>${old}</b> évolue en <b>${p.name}</b> !`,"evo");
+        if(!found.includes(p.id)) found.push(p.id);
+        if(pi===curP) setTimeout(()=>showEvoBanner(old,p.name,p.id),400);
+      }
+    }
+    if(p.level>=100){p.xp=0; logB(`🏅 <b>${p.name}</b> Lv.MAX !`,"evo");}
+    syncRoster(p);
+  });
+}
+
+function handleEnemyKO(e,cb){
+  logB(`💥 <b>${e.name}</b> K.O. !`,"ko");
+  let eIdx=enemy.indexOf(e);
+  giveSharedXP(e,eIdx>=0?eIdx:curE);
+  let next=enemy.findIndex(x=>x.hp>0);
+  if(next>=0){ curE=next; logB(`⚔️ L'ennemi envoie <b>${enemy[curE].name}</b> !`,""); xpContribs[curE].add(curP); }
+  renderBattle();
+  cb();
+}
+
+function openForcedSwitch(cb){
+  let alive=player.filter((p,i)=>i!==curP&&p.hp>0);
+  if(!alive.length){onDefeat();return;}
+  let ae=enemy[curE];
+  let choices=player.map((p,i)=>{
+    if(p.hp<=0) return "";
+    let pT=ptype[p.id-1]||"normal";
+    let aeT=ptype[ae.id-1]||"normal";
+    let defScore=multi(aeT,pT);
+    let hint=defScore>=2?`<br><span style="color:#f55;font-size:9px">⚠️ faible face à ${ae.name}</span>`:defScore<1?`<br><span style="color:lime;font-size:9px">✓ résiste à ${ae.name}</span>`:"";
+    return `<div class="selCard" onclick="forcedSwitch(${i})" style="display:inline-block;margin:5px;width:105px;vertical-align:top">
+      <img src="${getSprite(p.id)}" style="width:40px"><br><b>${p.name}</b><br>${badge(ptype[p.id-1]||"normal")}<br>
+      <span style="color:lime;font-size:10px">Lv.${p.level} · ${p.hp}/${p.maxHp}PV</span>${hint}</div>`;
+  }).join("");
+  document.getElementById("atkZone").innerHTML=`
+    <div style="font-size:12px;color:#f55;font-weight:bold;margin-bottom:8px">💀 ${player[curP].name} K.O. — Choisis le suivant !</div>
+    <div>${choices}</div>`;
+  window._switchCb=cb;
+}
+
+function forcedSwitch(idx){
+  curP=idx;
+  xpContribs[curE].add(curP);
+  logB(`<b>${player[curP].name}</b> entre en combat !`,"");
+  renderBattle();
+  if(window._switchCb){window._switchCb();window._switchCb=null;}
+}
+
+// ─── Victoire / Défaite ───────────────────────
+function onVictory(){
+  over=true; wins++; saveAll(); render();
+  logB(`🏆 <b>Victoire ! Combat ${wins} !</b>`,"evo");
+  particlesAt("enemyActiveCard","gold",25);
+  setTimeout(()=>{
+    let choix=enemy.map((e,i)=>`
+      <div class="selCard" onclick="captureEnemy(${i})" style="display:inline-block;margin:6px;width:110px;vertical-align:top">
+        <img src="${getSprite(e.id)}" style="width:50px"><br><b>${e.name}</b><br>${badge(ptype[e.id-1]||"normal")}<br>
+        <span style="color:#aaa;font-size:10px">Lv.${e.level}</span></div>`).join("");
+    showOv(`<h2>🏆 Victoire !</h2><p style="color:#aaa">Choisis le Pokémon à capturer :</p><div>${choix}</div><div style="margin-top:14px"><button onclick="skipCap()">Passer</button></div>`);
+  },600);
+}
+
+function captureEnemy(i){
+  let e=enemy[i];
+  if(roster.length>=6){showOv(`<h2>Roster plein (6/6)</h2><p>Libère un Pokémon :</p>${rosterManageHtml(e.id,e.level)}`);}
+  else doCapture(e);
+}
+function doCapture(e){
+  if(!found.includes(e.id)) found.push(e.id);
+  let np=makePoke(e.id,e.level);
+  let idx=roster.findIndex(r=>r.id===e.id);
+  if(idx>=0) roster[idx]=np; else roster.push(np);
+  logB(`➕ <b>${e.name}</b> Lv.${e.level} capturé !`,"lvl");
+  saveAll(); render(); hideOv(); postBtns();
+}
+function rosterManageHtml(cid,clvl){
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:12px">
+  ${roster.map((p,i)=>`<div class="selCard" style="width:100px">
+    <img src="${getSprite(p.id)}" style="width:38px"><br><b>${p.name}</b><br>Lv.${p.level}<br>
+    <button style="font-size:10px;margin-top:5px;padding:3px 8px" onclick="releaseFor(${i},${cid},${clvl})">Libérer</button>
+  </div>`).join("")}
+  </div><div style="margin-top:12px"><button onclick="skipCap()">Annuler</button></div>`;
+}
+function releaseFor(ri,cid,clvl){logB(`🔓 ${roster[ri].name} libéré.`,"");roster.splice(ri,1);doCapture({id:cid,level:clvl,name:names[cid-1]});}
+function skipCap(){hideOv();postBtns();}
+
+function onDefeat(){
+  over=true;
+  logB(`😞 <b>Défaite !</b>`,"ko");
+  if(!roster.length){postBtns();return;}
+  let li=Math.floor(Math.random()*roster.length), lost=roster[li];
+  roster.splice(li,1);
+  logB(`💔 <b>${lost.name}</b> capturé par l'ennemi !`,"ko");
+  saveAll(); render();
+  showOv(`<h2>😞 Défaite</h2><p><b>${lost.name}</b> t'a été volé !</p><img src="${getSprite(lost.id)}" style="width:70px;filter:grayscale(1);opacity:0.4"><br><button style="margin-top:14px" onclick="hideOv();postBtns()">OK</button>`);
+}
+
+function postBtns(){
+  document.getElementById("atkZone").innerHTML=`
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+      <button onclick="openTeamSelect()">🔄 Changer équipe / attaques</button>
+      <button onclick="replayTeam()">⚔️ Recombattre (même équipe)</button>
+    </div>`;
+}
+function replayTeam(){
+  if(!teamSel.length){openTeamSelect();return;}
+  let team=teamSel.map(id=>{
+    let ex=roster.find(p=>p.id===id);
+    let p=ex?JSON.parse(JSON.stringify(ex)):makePoke(id,1);
+    p.hp=p.maxHp; return p;
+  });
+  startBattle(team);
+}
+function hideBattle(){document.getElementById("battle").style.display="none";}
+
+// ─── Helpers ──────────────────────────────────
+function logB(t,cls=""){
+  let l=document.getElementById("log");
+  let d=document.createElement("div");
+  d.className="logLine"+(cls?" "+cls:""); d.innerHTML=t;
+  l.appendChild(d); l.scrollTop=9999;
+}
+// Garder 'log' comme alias pour la compatibilité
+function log(t){logB(t,"");}
+
+function effTxt(m){return m>=2?" <b style='color:lime'>Super efficace!</b>":m===0?" <b style='color:#f55'>Aucun effet</b>":m<1?" <i style='color:#fa0'>Peu efficace…</i>":"";}
+
+function calcDmg(move,atkLvl,defType,atkType){
+  if(!move.p)return{d:0,m:1,crit:false};
+  let m=multi(move.t,defType);
+  // STAB : bonus si le type d'attaque correspond au type du pokémon
+  let stab=(move.t===atkType)?1.5:1;
+  // Critique : 6.25%
+  let crit=Math.random()<0.0625;
+  let critMult=crit?1.5:1;
+  let rand=0.85+Math.random()*0.15;
+  let d=Math.max(1,Math.floor((move.p*0.28+atkLvl*1.6)*m*stab*critMult*rand));
+  return{d,m,crit};
+}
+function syncRoster(p){
+  let i=roster.findIndex(r=>r.id===p.id);
+  let c=JSON.parse(JSON.stringify(p));
+  if(i>=0)roster[i]=c; else if(roster.length<6)roster.push(c);
+}
+
+render();
+</script>
+</body>
+</html>
